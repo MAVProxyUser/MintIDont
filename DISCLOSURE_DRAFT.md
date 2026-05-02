@@ -385,8 +385,6 @@ This is included as a routing aid for Droisys to identify the relevant internal 
 - **Highland Mint** (named manufacturer of one SKU per the production server's response) — secondary recipient
 - The retailer ecosystem currently distributing affected products — secondary recipient, as appropriate
 
-A 90-day private-disclosure window is proposed before any public disclosure or technical writeup, with extension on request from any of the primary recipients given a credible remediation timeline.
-
 ---
 
 ## Acknowledgements
