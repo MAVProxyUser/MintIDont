@@ -3,7 +3,7 @@
 **Date**: 2026-05
 **Affected systems**: MintID Android app v1.8 and earlier (analysed via APK disassembly); MintID iOS app (analysed via empirical traffic capture and DNS-spoof end-to-end testing on stock iPhone); the production verification API at `mintidapi.droisys.info`; all NFC-tagged precious-metal products marketed by MintID/Highland Mint/Identiv as "AES-128 encrypted tamper-proof" since 2018.
 **Research basis**: DMCA §1201(f) interoperability research on coins owned by the researcher. Static analysis of the publicly distributed Android APK, traffic to the public-facing verification API, and physical-layer interrogation of three coins purchased at retail.
-**Status**: Disclosed to MintID/Highland Mint/Identiv on [DATE] via [CHANNEL]. Public release scheduled for [DATE+90] absent vendor request for extension.
+**Status**: Disclosed to MintID/Highland Mint/Identiv on May 1 2026 via GitHub. Public release was never *scheduled* as disclosure has been in real time via Twitter. No vendor request for extension is available as this is a completley flawed implementation that won't be *fixed* or mitigated in any reasonable amount of time. Vulnerable buyers are already at risk. End users have already documented nuances in the "tamper" protection well before I showed up. 
 **Use of vendor-published material**: This document quotes from Identiv- and MintID-published marketing materials for the purpose of critical commentary, criticism, and security research. Such quotation constitutes fair use under 17 U.S.C. §107 and analogous provisions in other jurisdictions. All quoted material is attributed to its source with full URL.
 
 ---
@@ -384,7 +384,7 @@ This is included as a routing aid for Droisys to identify the relevant internal 
 - **Identiv, Inc.** (the NFC tag / TOM Label supplier whose case study makes the marketed claims this disclosure refutes) — primary recipient; sales@identiv.com is the only published contact
 - **Highland Mint** (named manufacturer of one SKU per the production server's response) — secondary recipient
 - The retailer ecosystem currently distributing affected products — secondary recipient, as appropriate
-
+- General public because the coins are in HIGH circulation numbers, and fake coins could have been minted already. The trust model is broke, all coins must be Sigma verified, and have other industry standard tests performed against them. No value is lost in precious metals. 
 ---
 
 ## Acknowledgements
