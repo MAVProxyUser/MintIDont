@@ -155,11 +155,11 @@ This single design decision is the difference between an authentication system t
 
 Of the three coins examined under the same SKU (`1SBUFFR-New`, "1oz Silver MintID Buffalo"), two used genuine NXP NTAG 213 chips (UIDs starting `04...`, 7-byte UIDs, FF FF lock bytes) and one used a non-NXP clone chip (UID starting `AD...`, 8-byte UID, no spec-compliant lock bytes). All three were verified as Genuine by the official MintID app.
 
-The server's response identifies the manufacturer of these 1oz Silver MintID Buffalo Round coins as **Highland Mint** (`Manufacturer: "Highland Mint"`, SKU `1SBUFFR-New`). Highland Mint is a U.S.-based bullion mint headquartered in Melbourne, Florida, and the named mint in MintID's product database for this SKU regardless of which underlying chip family the coin shipped with.
+The server's response identifies the manufacturer of these 1oz Silver MintID Buffalo Round coins as **Highland Mint** (`Manufacturer: "Highland Mint"`, SKU `1SBUFFR-New`). Highland Mint is a U.S.-based bullion mint headquartered in Melbourne, Florida (https://www.highlandmint.com/), and the named mint in MintID's product database for this SKU regardless of which underlying chip family the coin shipped with.
 
-A separate SKU examined — the 5oz MintID Silver Buffalo Bar (`5MINTBUFF`) — uses a real NXP NTAG 213 chip (UID `04C83E12087484`) but its server-side product record lists `Manufacturer: "CUT SAW"` instead of a real mint name. This appears to be an internal placeholder / test value that escaped review and shipped to production. (See finding 18 below.)
+A separate SKU examined — the 5oz MintID Silver Buffalo Bar (`5MINTBUFF`) — uses a real NXP NTAG 213 chip (UID `04C83E12087484`) and its server-side product record lists `Manufacturer: "Cut Saw"`. Cut Saw is a Texas-based custom-bullion mint (https://cutsaw.com) that markets specifically to precious-metals dealers seeking to leverage their own branding or custom dies on contract-minted bullion. So the manufacturer field is correct, just unfamiliar — different SKUs in MintID's product line are physically minted by different contract mints (Highland Mint for the Buffalo Round, Cut Saw for the Buffalo Bar).
 
-This means MintID's chip-supplier discipline is loose enough that customers cannot rely on the underlying silicon being NXP, and operational discipline on the server-side product records is loose enough that placeholder values can ship to live customer-facing responses. From a verification standpoint this is consistent with finding 9 — since the app doesn't verify NXP originality signatures anyway, the chip supplier doesn't matter to the authentication flow. But both findings together represent an undisclosed gap between marketed and actual security posture.
+This means MintID's chip-supplier discipline is loose enough that customers cannot rely on the underlying silicon being NXP — but the manufacturer-field heterogeneity itself is documented production data, not a data-quality issue. From a verification standpoint the chip-supplier point is consistent with finding 9 — since the app doesn't verify NXP originality signatures anyway, the chip supplier doesn't matter to the authentication flow. The supply-chain transparency is a positive, but the authentication system fails to use it.
 
 ### 11. App accepts non-spec-compliant chip layouts
 
@@ -217,18 +217,18 @@ DeviceID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 
 The placeholder values `example-relay-9x@icloud.com` and `fxqpiv-2nujte-Cabzyk` are synthetic; the actual captured values were of the same form and length (Apple's iCloud Keychain hide-my-email alias format and 20-character three-block password format respectively) and have been retained for evidentiary purposes but are not reproduced in this disclosure. MintID is encouraged to identify the affected account from server-side logs and notify the user to rotate.
 
-### 18. Operational data quality and MongoDB-derived system history
+### 18. Production system history and supply chain visible from server responses
 
-Server responses to verification requests include MongoDB ObjectID values for the Product, Organization, and Brand records. The first 4 bytes of a MongoDB ObjectID encode the document creation timestamp as a 32-bit Unix epoch — a documented and stable property of the ObjectID format. Decoding the ObjectIDs returned by the production verification API yields a clear timeline of the system's operational history, plus several data-quality observations:
+Server responses to verification requests include MongoDB ObjectID values for the Product, Organization, and Brand records. The first 4 bytes of a MongoDB ObjectID encode the document creation timestamp as a 32-bit Unix epoch — a documented and stable property of the ObjectID format. Decoding the ObjectIDs returned by the production verification API yields a clear timeline of the system's operational history, plus visible supply-chain information:
 
-**Two SKUs queried, two distinct manufacturer fields, one of which is a placeholder.**
+**Two SKUs queried, two different contract mints producing them.**
 
 | SKU | ProductName | Manufacturer field | Product ObjectID | Decoded creation date |
 |---|---|---|---|---|
 | `1SBUFFR-New` | 1oz Silver MintID Buffalo (round) | `Highland Mint` | `5e94daa5fb7f1d05904fdb2f` | **2020-04-13 21:33:25 UTC** |
-| `5MINTBUFF` | 5oz MintID Silver Buffalo Bar | **`CUT SAW`** | `5f723876fb7f1d0cd8779f21` | **2020-09-29 06:46:14 UTC** |
+| `5MINTBUFF` | 5oz MintID Silver Buffalo Bar | `Cut Saw` | `5f723876fb7f1d0cd8779f21` | **2020-09-29 06:46:14 UTC** |
 
-The string `CUT SAW` is not a recognised mint or manufacturer name. It is most plausibly an internal placeholder from a manufacturing or fulfilment workflow (literally describing a tooling step) that was entered into the `Manufacturer` field during product setup and was never replaced with the real mint's name. It has been visible in production server responses for every customer scan of this SKU since the record was created in September 2020 and remains visible as of 2026. This is a process / data-validation finding rather than a security vulnerability, but it is observable to anyone who runs the official MintID app on a 5oz Silver Buffalo Bar coin and inspects the network response (or to anyone reading the response field directly), and it inappropriately surfaces internal terminology to end users who are paying premium prices in part for the assurance of a known-mint provenance.
+Both manufacturer values name real, identifiable bullion mints — Highland Mint (Melbourne, Florida) and Cut Saw Custom Minting (Texas, https://cutsaw.com), the latter explicitly catering to precious-metals dealers who contract out branded bullion production. This is documented supply-chain transparency: MintID is a brand and software-and-NFC-provenance layer; physical minting is contracted to multiple specialist mints depending on the SKU. Useful context for a buyer, and for a disclosure recipient understanding the multi-party scope.
 
 **System has been operating since at least 2017.**
 
@@ -252,7 +252,7 @@ The `Product.UpdatedDate` fields returned by the production server show that rec
 | 1oz Silver Buffalo Round | `2025-10-24T16:53:55.168Z` |
 | 5oz Silver Buffalo Bar | `2026-03-23T17:17:44.757Z` |
 
-The system is therefore not abandoned. Whoever is maintaining the records has had at least one opportunity to notice and correct the `CUT SAW` manufacturer field on the 5MINTBUFF SKU since its creation (most recently, six weeks before this disclosure was prepared) and has not done so. This is operationally relevant because it means the data-quality issue is not "old record, no one is looking." Someone is editing these records, and `CUT SAW` is surviving review.
+The system is therefore not abandoned. Records continue to be edited within weeks of disclosure preparation. This is operationally relevant for the impact assessment: the architectural vulnerabilities documented in findings 1-9 affect a live, maintained, growing deployment — not a legacy or pilot system.
 
 **TotalNFCCount reveals deployment scale.**
 

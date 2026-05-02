@@ -22,10 +22,7 @@ Empirically demonstrated end-to-end clone-and-tap against MintID's production ve
 
 ## What's not done
 
-- **Disclosure send.** `DISCLOSURE_DRAFT.md` has placeholder dates and channel. Need to:
-  - Pick disclosure channel (no published security@ for MintID/Highland Mint/Identiv; cold-email candidates)
-  - Decide redaction policy for Appendix B (recommend: redact full cryptograms to UID prefix only)
-  - Set the timeline dates
+- **Disclosure send.** Pick disclosure channel and recipients. No published security@ for MintID/Highland Mint/Identiv/Cut Saw/Droisys; cold-email candidates. The disclosure body itself is complete (no placeholder dates remaining; timeline section was removed by request).
 - **iOS-specific findings.** We discovered iOS app sends form-encoded bodies (Android sends JSON) but didn't reverse the iOS app in detail. Probably not needed unless the vendor specifically denies the iOS attack surface.
 
 ## Things that surprised us along the way
