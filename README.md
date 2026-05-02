@@ -135,4 +135,6 @@ apt install python3-pyscard pcscd libpcsclite-dev   # Debian/Ubuntu
 
 ## Disclosure status
 
-See `DISCLOSURE_DRAFT.md` for the full disclosure with 14 numbered findings. The empirical demonstration is complete: clone-and-tap works end-to-end, official iOS app accepts forged responses, image and product fields are server-controlled with no client-side validation. Disclosure is the next step.
+See `DISCLOSURE_DRAFT.md` for the full disclosure with 14 numbered findings. The empirical demonstration is complete: clone-and-tap works end-to-end, official iOS app accepts forged responses, image and product fields are server-controlled with no client-side validation. Mitigation is the next step.
+
+It is recommended that MintID and their stakeholders offer a service by which anyone owning a MintID certified bar can return it, have it authenticated by their staff, and issued a new RFID tag, or packaging. Once the application level mitigations are performed (issue a new app version, and make the server side validatiosn more robust) this tag replacement will *clean* the landscape of questionable RFID TOMs. Any resellers should preemptively work with MintID to replace known questionable, or potentially compromised tags that fall into the pre-disclosure timeline. New bars that are minted should immediately stop using the known flawed tag impelmentation when they are added to the master database. 
