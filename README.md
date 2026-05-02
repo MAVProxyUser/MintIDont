@@ -96,7 +96,7 @@ sudo python3 mintid_fake_server.py \
     --override-images-globally \
     --serial-number 31337 \
     --product-name "1.82 Troy Oz MintID Imperial Credit" \
-    --product-description "Poured May 1st by Kevin Finisterre. Artisinally hand crafted elite pwnage pour." \
+    --product-description "Poured May 1st by d0tslash. Artisinally hand crafted elite pwnage pour." \
     --material "1.82 Troy Ounce, and a splash of Unobtainium" \
     --proxy-images
 

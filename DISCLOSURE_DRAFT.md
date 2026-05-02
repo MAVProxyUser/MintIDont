@@ -1,15 +1,16 @@
 # Architectural vulnerabilities in MintID NFC verification for precious metals
 
 **Date**: 2026-05
-**Affected systems**: MintID Android app v1.8 and earlier; MintID iOS app (suspected, not analysed in detail); the production verification API at `mintidapi.droisys.info`; all NFC-tagged precious-metal products marketed by MintID/Highland Mint/Identiv as "AES-128 encrypted tamper-proof" since 2018.
+**Affected systems**: MintID Android app v1.8 and earlier (analysed via APK disassembly); MintID iOS app (analysed via empirical traffic capture and DNS-spoof end-to-end testing on stock iPhone); the production verification API at `mintidapi.droisys.info`; all NFC-tagged precious-metal products marketed by MintID/Highland Mint/Identiv as "AES-128 encrypted tamper-proof" since 2018.
 **Research basis**: DMCA §1201(f) interoperability research on coins owned by the researcher. Static analysis of the publicly distributed Android APK, traffic to the public-facing verification API, and physical-layer interrogation of three coins purchased at retail.
 **Status**: Disclosed to MintID/Highland Mint/Identiv on [DATE] via [CHANNEL]. Public release scheduled for [DATE+90] absent vendor request for extension.
+**Use of vendor-published material**: This document quotes from Identiv- and MintID-published marketing materials for the purpose of critical commentary, criticism, and security research. Such quotation constitutes fair use under 17 U.S.C. §107 and analogous provisions in other jurisdictions. All quoted material is attributed to its source with full URL.
 
 ---
 
 ## Executive summary
 
-MintID markets NFC-tagged precious-metal products with the published assertion that its chips cannot be copied or cloned (Identiv–MintID case study, December 2021). The implemented verification system does not deliver on that claim. Specifically:
+MintID markets NFC-tagged precious-metal products with the published claim that "MintID chips cannot be copied or cloned" (Identiv–MintID case study PDF, December 2021). The implemented verification system does not deliver on that claim. Specifically:
 
 The chip stores a static 128-bit identifier in plaintext NDEF format. The server transmits responses over plaintext HTTP using a credential pair shared by every install of the app. The server does not perform AES decryption during verification — it treats the cryptogram as an opaque database key. The server response is fully deterministic for a given (UID, cryptogram) tuple, with no nonce, timestamp, or per-tap freshness. The chip has no tamper-evidence circuit; physical tamper-evident packaging on the coins is decorative.
 
@@ -35,35 +36,35 @@ Additional public marketing material exists (NFC Forum listings, RFID-industry t
 
 ### Founder-attributed claims
 
-The published Identiv case study attributes a statement to MintID's founder describing the partnership with Identiv as a way to "guarantee the authenticity of each product" and "prevent counterfeiting of some of the world's most valuable items." (Corey Maita, MintID Founder, in the Identiv–MintID case study cited above.)
+The Identiv case study attributes a statement to MintID's founder Corey Maita describing the Identiv partnership as a way to "guarantee the authenticity of each product" and "prevent counterfeiting of some of the world's most valuable items." (The web and PDF versions of the case study differ slightly in tense around the anti-counterfeiting promise, but the substance is the same.) The full statement is reproduced in the cited source.
 
 ### Marketed technical properties
 
-The PDF case study describes the following technical properties of the deployed solution (paraphrased; see source for full text):
+The PDF case study describes the deployed solution using language summarised here in paraphrase, with the source URL provided above for verbatim review:
 
-- The tags are described as tamper-proof
-- AES-128 bit encryption is described as combined with NFC for product authentication
-- Each product is described as outfitted with a custom-designed NFC chip carrying a unique encrypted, tamper-proof digital certificate
-- The case study states MintID chips cannot be copied or cloned, and describes them as locked encrypted microchips linked to a cloud-based digital record
-- Each product is described as instantaneously authenticated and guaranteed genuine by the minting facility (an ISO 9001 facility per the source)
-- Over 80,000 registered authentications
+- The product is positioned as an AES-128-encrypted NFC anti-counterfeiting ecosystem
+- The supplied NFC tags are described as highly secure, anti-counterfeit, brand-protection-grade, with tamper-proof functionality
+- Each product is described as outfitted with a custom-designed NFC chip carrying a unique encrypted, tamper-proof digital certificate, instantaneously authenticated and "guaranteed genuine" by an ISO-9001-certified minting facility via the MintID mobile app
+- The chips are described as not copyable or cloneable, with locked encryption tying the physical product to a cloud-based digital record
+- Both Android and iOS mobile apps are described as offering real-time authentication
+- Scope figures cited in the case study include "Over 80,000 registered authentications" and a sales figure of approximately 200,000 ounces of silver moved in a five-month window
 
-The Identiv TOM blog post describes the underlying chip technology (Tag On Metal labels) as the physical-layer foundation enabling MintID's anti-counterfeiting posture.
+The Identiv "Meet TOM" blog post describes the Tag On Metal label line as the physical-layer foundation enabling on-coin NFC anti-counterfeiting, marketing the labels for performance on metal surfaces.
 
 ### Findings vs. claims
 
 The findings in this disclosure directly contradict each of the marketed claims:
 
-| Marketed claim (paraphrased) | Observed reality | Finding(s) |
+| Marketed claim (verbatim from PDF case study) | Observed reality | Finding(s) |
 |---|---|---|
-| Tamper-proof NFC tags | Chips have no tamper-evidence circuit. The physical security label is decorative; peeling it does not change chip behavior. | 8 |
-| AES-128 encryption | The server does not decrypt the chip cryptogram during verification. Bit-flipping the cryptogram changes the response from "in DB" to "not in DB" — proving the server does string-matching, not decryption. | 3 |
-| Chips cannot be copied or cloned | A genuine coin's UID and NDEF cryptogram were captured via a $30 NFC reader and written to a $5 magic chip. The cloned chip produced byte-equal server responses to the genuine coin. Demonstrated end-to-end in approximately 30 seconds. | 4, 5, 6, 9, 10, 11 |
-| Locked encrypted microchips | The chip's NDEF area is readable without authentication. The chip transmits the same cryptogram bytes on every read with no challenge-response mechanism. | 3, 5, 6 |
-| Custom-designed NFC chip | Two distinct chip-supplier families were observed for the same SKU (1SBUFFR-New): genuine NXP NTAG 213 (UID prefix `04...`) and 8-byte UID non-NXP clones (UID prefix `AD...`). Both authenticate as Genuine. | 10, 11 |
-| Instantaneous authentication guaranteed by the minting facility | Authentication does not depend on facility-of-origin verification. The server compares (UID, cryptogram) against a database lookup with no provenance check. The same architecture would authenticate any (UID, cryptogram) tuple ingested through any path, including operator data-entry, leaks, or compromise. | 1, 2, 3, 4, 5, 6, 7, 9, 12 |
+| "tamper-proof NFC tags" / "tamper-proof functionality" | Chips have no tamper-evidence circuit. The visible label is decorative; peeling it off, or severing the Y-shaped die-cut notches that are designed to deform on removal, does not change chip behavior or the server's verification result. | 8 |
+| "AES-128 bit encryption with NFC technologies" | The server does not decrypt the chip cryptogram during verification. Bit-flipping the cryptogram changes the response from "in DB" to "not in DB" — proving the server does string-matching, not decryption. | 3 |
+| "MintID chips cannot be copied or cloned" | A genuine coin's UID and NDEF cryptogram were captured via a $30 NFC reader and written to a $5 magic chip. The cloned chip produced byte-equal server responses to the genuine coin. Demonstrated end-to-end in approximately 30 seconds. | 4, 5, 6, 9, 10, 11 |
+| "locked encrypted microchips" | The chip's NDEF area is readable without authentication. The chip transmits the same cryptogram bytes on every read with no challenge-response mechanism. | 3, 5, 6 |
+| "custom-designed NFC chip [with] a unique encrypted, tamper-proof digital certificate" | Two distinct chip-supplier families were observed for the same SKU (1SBUFFR-New): genuine NXP NTAG 213 (UID prefix `04...`) and 8-byte UID non-NXP clones (UID prefix `AD...`). Both authenticate as Genuine. The "digital certificate" is a 32-character ASCII string in plaintext NDEF, with no signature, no chain of trust, and no cryptographic verification. | 3, 10, 11 |
+| "instantaneously be authenticated and guaranteed genuine by the ISO: 9001 facility that minted it" | Authentication does not depend on facility-of-origin verification. The server compares (UID, cryptogram) against a database lookup with no provenance check. The same architecture would authenticate any (UID, cryptogram) tuple ingested through any path, including operator data-entry, leaks, or compromise. | 1, 2, 3, 4, 5, 6, 7, 9, 12 |
 
-Most consequentially, the case study's published assertion that the chips cannot be copied or cloned is the principal anti-counterfeit promise made to investors. The empirical demonstration in this document refutes it. The cloning operation requires neither cryptographic key material, nor insider access, nor specialized equipment beyond commodity research hardware; it requires only brief NFC-tap proximity to any genuine coin, which is an everyday occurrence in the secondary precious-metals market.
+Most consequentially, the case study's published assertion that "MintID chips cannot be copied or cloned" is the principal anti-counterfeit promise made to investors. The empirical demonstration in this document refutes it. The cloning operation requires neither cryptographic key material, nor insider access, nor specialized equipment beyond commodity research hardware; it requires only brief NFC-tap proximity to any genuine coin, which is an everyday occurrence in the secondary precious-metals market.
 
 The 80,000-registered-authentications figure cited in the case study indicates non-trivial deployment of the affected products. Coins issued under this program are presently in circulation in the secondary precious-metals market, where the MintID app verification result is the principal authenticity signal communicated to end purchasers.
 
@@ -136,7 +137,11 @@ Defense-in-depth failure: the server should return a uniform "auth failed" respo
 
 One of the three coins examined had its visible foil/scallop "tamper-evident" label peeled off prior to scanning. The official MintID app verified the coin as Genuine and rendered the GenuineProductDetail screen with full product information.
 
-The chip has no tamper-detection circuit. The cryptogram does not encode tamper state. The server has no signal of physical tampering.
+In a separate test, the Y-shaped die-cut notches on the visible label of a second coin were intentionally severed before scanning. These notches are the destructive-removal feature of the security label — they are designed to tear and deform when the label is lifted, providing the visible "tamper-evident" signature that gives the label its anti-counterfeit value. After breaking the notches, the chip authenticated normally; the official MintID app rendered the GenuineProductDetail screen with no tamper indication of any kind.
+
+The chip has no tamper-detection circuit. There is no conductive tamper loop wired through the label substrate, no destruct-on-removal trace, and no electrical pathway through the Y-notches that would change chip state when severed. The label is a printed adhesive sticker whose only "anti-tamper" property is human-visible deformation when removed — and that deformation is invisible to the chip, the app, and the server. The cryptogram does not encode tamper state. The server has no signal of physical tampering.
+
+This means the tamper-evident packaging functions only as a visual cue to a human inspecting the coin in person. It does not gate digital authentication in any way. A clone of the chip's data into a fresh, unbroken label substrate produces a coin that is digitally indistinguishable from a genuine one *and* visually indistinguishable as well — defeating both the technical and visual layers of the marketed anti-counterfeit story simultaneously.
 
 ### 9. NXP originality signatures are not used
 
@@ -150,7 +155,11 @@ This single design decision is the difference between an authentication system t
 
 Of the three coins examined under the same SKU (`1SBUFFR-New`, "1oz Silver MintID Buffalo"), two used genuine NXP NTAG 213 chips (UIDs starting `04...`, 7-byte UIDs, FF FF lock bytes) and one used a non-NXP clone chip (UID starting `AD...`, 8-byte UID, no spec-compliant lock bytes). All three were verified as Genuine by the official MintID app.
 
-This means MintID's chip-supplier discipline is loose enough that customers cannot rely on the underlying silicon being NXP. From a verification standpoint this is consistent with finding 9 — since the app doesn't verify NXP originality signatures anyway, the chip supplier doesn't matter to the authentication flow. But it represents an undisclosed shift in the security posture marketed to customers.
+The server's response identifies the manufacturer of these 1oz Silver MintID Buffalo Round coins as **Highland Mint** (`Manufacturer: "Highland Mint"`, SKU `1SBUFFR-New`). Highland Mint is a U.S.-based bullion mint headquartered in Melbourne, Florida, and the named mint in MintID's product database for this SKU regardless of which underlying chip family the coin shipped with.
+
+A separate SKU examined — the 5oz MintID Silver Buffalo Bar (`5MINTBUFF`) — uses a real NXP NTAG 213 chip (UID `04C83E12087484`) but its server-side product record lists `Manufacturer: "CUT SAW"` instead of a real mint name. This appears to be an internal placeholder / test value that escaped review and shipped to production. (See finding 18 below.)
+
+This means MintID's chip-supplier discipline is loose enough that customers cannot rely on the underlying silicon being NXP, and operational discipline on the server-side product records is loose enough that placeholder values can ship to live customer-facing responses. From a verification standpoint this is consistent with finding 9 — since the app doesn't verify NXP originality signatures anyway, the chip supplier doesn't matter to the authentication flow. But both findings together represent an undisclosed gap between marketed and actual security posture.
 
 ### 11. App accepts non-spec-compliant chip layouts
 
@@ -200,13 +209,63 @@ Content-Type: application/x-www-form-urlencoded; charset=utf-8
 Content-Length: 130
 User-Agent: MintID/1.8 CFNetwork/...
 
-DeviceID=305EB931-1A78-49E1-9EDE-XXXXXXXXXXXX
+DeviceID=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
 &DeviceType=iOS
 &UserName=example-relay-9x%40icloud.com
 &Password=fxqpiv-2nujte-Cabzyk
 ```
 
 The placeholder values `example-relay-9x@icloud.com` and `fxqpiv-2nujte-Cabzyk` are synthetic; the actual captured values were of the same form and length (Apple's iCloud Keychain hide-my-email alias format and 20-character three-block password format respectively) and have been retained for evidentiary purposes but are not reproduced in this disclosure. MintID is encouraged to identify the affected account from server-side logs and notify the user to rotate.
+
+### 18. Operational data quality and MongoDB-derived system history
+
+Server responses to verification requests include MongoDB ObjectID values for the Product, Organization, and Brand records. The first 4 bytes of a MongoDB ObjectID encode the document creation timestamp as a 32-bit Unix epoch — a documented and stable property of the ObjectID format. Decoding the ObjectIDs returned by the production verification API yields a clear timeline of the system's operational history, plus several data-quality observations:
+
+**Two SKUs queried, two distinct manufacturer fields, one of which is a placeholder.**
+
+| SKU | ProductName | Manufacturer field | Product ObjectID | Decoded creation date |
+|---|---|---|---|---|
+| `1SBUFFR-New` | 1oz Silver MintID Buffalo (round) | `Highland Mint` | `5e94daa5fb7f1d05904fdb2f` | **2020-04-13 21:33:25 UTC** |
+| `5MINTBUFF` | 5oz MintID Silver Buffalo Bar | **`CUT SAW`** | `5f723876fb7f1d0cd8779f21` | **2020-09-29 06:46:14 UTC** |
+
+The string `CUT SAW` is not a recognised mint or manufacturer name. It is most plausibly an internal placeholder from a manufacturing or fulfilment workflow (literally describing a tooling step) that was entered into the `Manufacturer` field during product setup and was never replaced with the real mint's name. It has been visible in production server responses for every customer scan of this SKU since the record was created in September 2020 and remains visible as of 2026. This is a process / data-validation finding rather than a security vulnerability, but it is observable to anyone who runs the official MintID app on a 5oz Silver Buffalo Bar coin and inspects the network response (or to anyone reading the response field directly), and it inappropriately surfaces internal terminology to end users who are paying premium prices in part for the assurance of a known-mint provenance.
+
+**System has been operating since at least 2017.**
+
+Decoding the OrganizationID and BrandID ObjectIDs returned by the production server:
+
+| Field | ObjectID | Decoded creation date |
+|---|---|---|
+| OrganizationID (MintID/Droisys org) | `594b66c071945a30d03d28bf` | **2017-06-21 17:49:36 UTC** |
+| BrandID (MintID brand record) | `5c268bb659a43d0d34ddc5ae` | **2018-12-28 21:50:14 UTC** |
+| Product._id (1oz Silver Buffalo Round) | `5e94daa5fb7f1d05904fdb2f` | **2020-04-13 21:33:25 UTC** |
+| Product._id (5oz Silver Buffalo Bar) | `5f723876fb7f1d0cd8779f21` | **2020-09-29 06:46:14 UTC** |
+
+The 2020-04-13 date for the Buffalo Round product record places its creation about three weeks before the May 2020 NFC-Forum-published joint Identiv/MintID press release announcing the product line — i.e., products were being staged in the production database in advance of public announcement, consistent with normal product-launch cadence.
+
+**System is actively maintained as of 2026.**
+
+The `Product.UpdatedDate` fields returned by the production server show that records continue to be edited:
+
+| Product | Most recent UpdatedDate observed |
+|---|---|
+| 1oz Silver Buffalo Round | `2025-10-24T16:53:55.168Z` |
+| 5oz Silver Buffalo Bar | `2026-03-23T17:17:44.757Z` |
+
+The system is therefore not abandoned. Whoever is maintaining the records has had at least one opportunity to notice and correct the `CUT SAW` manufacturer field on the 5MINTBUFF SKU since its creation (most recently, six weeks before this disclosure was prepared) and has not done so. This is operationally relevant because it means the data-quality issue is not "old record, no one is looking." Someone is editing these records, and `CUT SAW` is surviving review.
+
+**TotalNFCCount reveals deployment scale.**
+
+The `Result.Product.TotalNFCCount` field returned by the verification API is a per-SKU counter of issued chips. Observed values:
+
+| SKU | TotalNFCCount | Material | Implied troy-ounce volume issued |
+|---|---|---|---|
+| `1SBUFFR-New` (1oz Round) | 156,638 | 1 Troy Ounce | ~156,638 troy oz |
+| `5MINTBUFF` (5oz Bar) | 98,491 | 5 Troy Ounces | ~492,455 troy oz |
+
+For just these two SKUs out of MintID's broader catalog, the system has authenticated approximately 255,000 NFC-tagged precious-metal items representing roughly 649,000 troy ounces of silver. The highest `TagNumber` (a separate global serial counter) observed during this research was 349,418 from the Buffalo Bar coin, suggesting that across all SKUs combined MintID has issued at least ~350,000 NFC-tagged items if numbering started near 1, or substantially more if numbering started higher. The marketing claim cited in section "Marketing claims vs. observed behaviour" referencing "200,000 ounces of silver in the last five months" is therefore broadly consistent with the deployment scale visible from the production database, though the disclosure-time totals are several multiples higher.
+
+This finding is included because it materially affects the impact assessment: the cloning vulnerability documented in findings 1-9 affects an installed base that is large, growing, and being actively maintained — not a small pilot or legacy deployment.
 
 ---
 
@@ -229,6 +288,16 @@ The researcher demonstrated end-to-end clone-and-tap against MintID's production
 End-to-end time: approximately 30 seconds from genuine-coin capture to clone-tap verification. Cost of materials: approximately $5 for the magic chip plus ~$60 for the Proxmark 3 (or $30-40 for an NFC-write-capable smartphone with appropriate magic-chip software).
 
 The chip used for the clone is materially different from the genuine NXP chip: it has no NXP originality signature, it does not implement NXP-specific commands (`GET_VERSION`, `READ_SIG`, `FAST_READ`, `PWD_AUTH`), and it exposes 256 bytes of memory rather than NTAG 213's 180. None of these differences are detected by the MintID app or server, because the verification path queries only anticollision (UID) and READ commands (NDEF stream) — both of which the magic chip implements identically to the genuine NTAG.
+
+### Physical reproduction notes
+
+Two practical observations from the empirical demonstration are worth documenting, both because they constitute the *only* meaningful friction an attacker encounters and because they help characterize the chip-on-metal antenna's real-world behaviour:
+
+- **Smartphone NFC alignment is finicky.** The researcher's iPhone 16 Pro initially failed to read the chips on multiple attempts. The iPhone 16 Pro's NFC antenna is in a small region near the top edge of the device, and finding it relative to a coin-embedded sticker-form-factor chip requires deliberate alignment. After the antenna's exact location was identified through repeated attempts, scanning became reliable — but the first-time experience for an everyday user is one of "tap, fail, retry, eventually succeed." This is consistent with the user-experience reports for any consumer NFC-on-metal product and is not a security feature; an attacker simply experiences the same friction once and then knows where to tap.
+
+- **Reader detuning when chip is on a metal coin is significant.** The researcher's ACR1252U PC/SC NFC reader has trouble reading the chip while it is mounted to the metal coin substrate. The same chip, lifted off the metal (off-coin, in free air), reads cleanly without alignment effort. On-coin reads succeed only with the coin in very specific physical orientations relative to the reader's antenna. This is the classic detuning behaviour caused by eddy-current losses in the metal substrate, which the Identiv "TOM" (Tag-On-Metal) ferrite shielding partially compensates for but does not eliminate. For an attacker, this means the *capture* step (reading the genuine coin's UID and NDEF cryptogram) requires patience or removing the chip from the coin; the *clone-write* step uses a free-standing magic chip and has no such issues, and the *cloned-chip read* by the official MintID app on a smartphone is then unencumbered by the metal substrate (because the magic chip can be carried in a sticker, card, or any non-metal substrate of the attacker's choice).
+
+Importantly: neither of these frictions limits the attack. They are present even for legitimate scans of genuine coins by their owners. The attacker's experience reproducing the attack is no worse than a legitimate owner's experience using the product as marketed.
 
 ---
 
@@ -286,6 +355,40 @@ If the cost of #1 is prohibitive for currently-deployed inventory, #2 (originali
 
 ---
 
+## App vendor identification
+
+The MintID Android and iOS apps are developed by **Droisys**, a software-development services firm headquartered in Fremont, California, with delivery offices in India (Noida, Ahmedabad, Nagpur, Hyderabad) and Poland (Julianów). This is corroborated by the production verification API hostname (`mintidapi.droisys.info`), which is on the Droisys-owned `droisys.info` domain rather than on a MintID-owned domain.
+
+Droisys's public-facing materials are at:
+
+- https://droisys.com/about-us/ — corporate about page, leadership, office locations
+- https://www.linkedin.com/company/droisys/ — LinkedIn company page
+
+The Droisys About-us page lists the company's executive leadership, including President Sanjiv Goyal, CEO Amit Goel, CIO Dean Lane, and a number of VP- and Director-level roles. The page does not mention MintID or the precious-metals-authentication product line specifically; Droisys appears to operate as a contracted development house with multiple unrelated app and platform products in their portfolio (e.g., "Player 360," "Account360.ai," gaming-industry tooling).
+
+### Identified developer
+
+Public professional profiles identify **Vishal Mishra** as one of the developers who worked on the MintID Android app while employed at Droisys India Pvt. Ltd. as Sr. Software Engineer:
+
+- Bold profile listing the MintID Play Store URL (`com.mintid.production`) among his projects: https://in.bold.pro/my/vishal-mishra-240724000031
+- LinkedIn (Sr. Software Engineer at Droisys, Noida): https://www.linkedin.com/in/vishal-mishra-673342105/
+- The Org corroboration of role and tenure (at Droisys since January 2021): https://theorg.com/org/droisys/org-chart/vishal-mishra
+- GitHub (`luckvishal`), self-described "Mobile Application Developer" at Droisys, Noida: https://github.com/luckvishal — repositories include `NFC-Reader`, `RetrofitSample` ("json parsing through Retrofit and Jackson library"), and `VolleySample`. The public-portfolio toolset (Retrofit + Jackson + NFC) matches the libraries observed in the disassembled MintID APK.
+
+This is included as a routing aid for Droisys to identify the relevant internal team. The disclosure is not directed at any individual developer; the architectural failures documented above (no TLS, hardcoded shared credentials, no chip-attestation verification, no request signing, etc.) are organisation-level and product-management-level decisions, not the responsibility of any single contributor. Implementing AES-128 client-side, deploying TLS, requiring per-install authentication, and verifying NXP originality signatures are all decisions that get made above the IC engineering level. The developer-name reference here exists solely so Droisys's internal triage can identify the correct team owner and route this disclosure efficiently.
+
+### Suggested disclosure recipients
+
+- **MintID / Bullion Works Inc.** (the brand and product owner) — primary recipient
+- **Droisys, Inc.** (the app developer and API operator) — primary recipient; sales@droisys.com is the only published contact
+- **Identiv, Inc.** (the NFC tag / TOM Label supplier whose case study makes the marketed claims this disclosure refutes) — primary recipient; sales@identiv.com is the only published contact
+- **Highland Mint** (named manufacturer of one SKU per the production server's response) — secondary recipient
+- The retailer ecosystem currently distributing affected products — secondary recipient, as appropriate
+
+A 90-day private-disclosure window is proposed before any public disclosure or technical writeup, with extension on request from any of the primary recipients given a credible remediation timeline.
+
+---
+
 ## Acknowledgements
 
 Research conducted under the DMCA §1201(f) interoperability exemption. Coins examined were owned by the researcher; production verification API was queried only for coins owned by the researcher, with hard-capped probe runs to avoid impact on the service.
@@ -293,19 +396,5 @@ Research conducted under the DMCA §1201(f) interoperability exemption. Coins ex
 Thanks to the open-source community behind Proxmark 3 / Iceman fork, androguard, and the documented research on chip-attested NFC authentication (NXP NTAG 424 DNA SUN messages, NFC Forum Type 4 Tag spec).
 
 ---
-
-## Appendix A: Toolkit
-
-The toolkit used to produce this disclosure is available [or: available on request]. It consists of:
-
-- `mintid_simulate.py` — chip-read + server-POST simulator, byte-faithful to the Android app's behaviour
-- `mintid_oracle.py` / `mintid_oracle_cli.py` — SQLite-based response oracle with change detection
-- `mintid_chip_summary.py` / `mintid_chip_interrogate.py` — chip-side characterisation
-- `mintid_probe.py` — five hard-capped server probes (baseline-replay, cryptogram-bit-flip, uid-bit-flip, uid-nearby-batch, objectid-nearby-batch)
-- `mintid_pm3_clone.py` — Proxmark 3 cloning helper
-- `mintid_capture_and_clone.py` — one-shot ACR-capture + PM3-clone + verification script
-- `Harness.java` — Java verification of request body byte-for-byte (real Jackson 2.14)
-
-All tools are read-only against the MintID server with hard-capped request budgets. The clone-write tools are local-only (PM3 + magic chip in researcher's own lab).
 
 End of disclosure.
